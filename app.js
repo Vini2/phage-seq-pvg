@@ -11,10 +11,11 @@ const els = {
   fileList: document.querySelector("#file-list"),
   reference: document.querySelector("#reference-select"),
   build: document.querySelector("#build-button"),
-  sample: document.querySelector("#sample-button"),
+  microviridae: document.querySelector("#microviridae-button"),
   summary: document.querySelector("#summary"),
   downloads: document.querySelector("#downloads"),
   matrix: document.querySelector("#matrix"),
+  graph: document.querySelector("#graph"),
   viewer: document.querySelector("#viewer-shell"),
   detailsEmpty: document.querySelector(".details-empty"),
   detailsContent: document.querySelector(".details-content"),
@@ -33,7 +34,7 @@ const els = {
 window.addEventListener("DOMContentLoaded", () => {
   bootPyodide();
   els.fileInput.addEventListener("change", readUploadedFiles);
-  els.sample.addEventListener("click", loadSampleFiles);
+  els.microviridae.addEventListener("click", loadMicroviridaeFiles);
   els.build.addEventListener("click", buildGraph);
   els.downloads.addEventListener("click", handleDownload);
   els.copy.addEventListener("click", copySequence);
@@ -65,8 +66,12 @@ async function readUploadedFiles(event) {
   updateBuildState();
 }
 
-async function loadSampleFiles() {
-  const names = ["phage_a.fasta", "phage_b.fasta", "phage_c.fasta"];
+async function loadMicroviridaeFiles() {
+  const names = ["KX513870.1.fasta", "KX513872.1.fasta", "KX513874.1.fasta"];
+  await loadExampleFiles(names, "KX513870.1");
+}
+
+async function loadExampleFiles(names, preferredReference) {
   state.files = await Promise.all(
     names.map(async (name) => ({
       name,
@@ -74,7 +79,7 @@ async function loadSampleFiles() {
     })),
   );
   renderFileList();
-  updateReferenceOptions("phage_a");
+  updateReferenceOptions(preferredReference);
   updateBuildState();
 }
 
@@ -146,6 +151,7 @@ function renderResult(result) {
   renderSummary(result);
   renderDownloads();
   renderMatrix(result);
+  renderGraph(result);
   els.viewer.hidden = false;
 }
 
@@ -214,6 +220,179 @@ function renderMatrix(result) {
     });
     els.matrix.appendChild(row);
   });
+}
+
+function renderGraph(result) {
+  const blockOrder = result.blocks.map((block) => block.id);
+  const blockById = Object.fromEntries(result.blocks.map((block) => [block.id, block]));
+  const pathByGenome = Object.fromEntries(result.paths.map((path) => [path.genome, path]));
+  const graphPaths = orderGraphPaths(result.paths);
+  const genomeNames = graphPaths.map((path) => path.genome);
+  const genomeIndex = Object.fromEntries(genomeNames.map((genome, index) => [genome, index]));
+  const laneGap = 74;
+  const topPad = 72;
+  const bottomPad = 52;
+  const leftPad = 178;
+  const rightPad = 58;
+  const nodeHeight = 48;
+  const columnGap = 70;
+  const centerY = topPad + ((genomeNames.length - 1) * laneGap) / 2;
+  const laneY = (genome) => topPad + genomeIndex[genome] * laneGap;
+
+  let cursorX = leftPad;
+  const layout = {};
+  blockOrder.forEach((blockId) => {
+    const block = blockById[blockId];
+    const width = clamp(block.length * 7 + 58, 92, 360);
+    const isShared = block.genomes.length === result.genomes.length;
+    const y = isShared
+      ? centerY
+      : block.genomes.reduce((total, genome) => total + laneY(genome), 0) / block.genomes.length;
+    layout[blockId] = {
+      x: cursorX,
+      y,
+      width,
+      height: nodeHeight,
+      isShared,
+    };
+    cursorX += width + columnGap;
+  });
+
+  const graphWidth = Math.max(cursorX - columnGap + rightPad, 760);
+  const graphHeight = topPad + (genomeNames.length - 1) * laneGap + bottomPad;
+
+  els.graph.innerHTML = "";
+  els.graph.style.setProperty("--graph-width", `${graphWidth}px`);
+  els.graph.style.setProperty("--graph-height", `${graphHeight}px`);
+
+  const canvas = div("graph-canvas");
+  canvas.style.width = `${graphWidth}px`;
+  canvas.style.height = `${graphHeight}px`;
+  canvas.appendChild(renderGraphSvg(graphPaths, layout, genomeNames, laneY, graphWidth, graphHeight, leftPad));
+
+  genomeNames.forEach((genome, index) => {
+    const label = div("graph-lane-label", genome);
+    label.style.top = `${laneY(genome)}px`;
+    label.style.setProperty("--lane-color", genomeColor(index));
+    canvas.appendChild(label);
+  });
+
+  blockOrder.forEach((blockId) => {
+    const block = blockById[blockId];
+    const box = layout[blockId];
+    const button = blockButton("graph-node", block, result, pathByGenome);
+    button.title = `${block.id} | ${block.length} bp | ${block.genomes.join(", ")}`;
+    button.style.left = `${box.x}px`;
+    button.style.top = `${box.y - box.height / 2}px`;
+    button.style.width = `${box.width}px`;
+    button.style.height = `${box.height}px`;
+    button.innerHTML = graphNodeMarkup(block, result.genomes.length);
+    canvas.appendChild(button);
+  });
+
+  els.graph.appendChild(canvas);
+}
+
+function renderGraphSvg(graphPaths, layout, genomeNames, laneY, graphWidth, graphHeight, leftPad) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "graph-svg");
+  svg.setAttribute("viewBox", `0 0 ${graphWidth} ${graphHeight}`);
+  svg.setAttribute("width", graphWidth);
+  svg.setAttribute("height", graphHeight);
+  svg.setAttribute("aria-hidden", "true");
+
+  genomeNames.forEach((genome, index) => {
+    const y = laneY(genome);
+    const rail = svgElement("line", {
+      class: "graph-lane-rail",
+      x1: leftPad - 18,
+      y1: y,
+      x2: graphWidth - 32,
+      y2: y,
+    });
+    svg.appendChild(rail);
+
+  });
+
+  const edgeCounts = {};
+  graphPaths.forEach((path) => {
+    path.blocks.slice(0, -1).forEach((sourceId, index) => {
+      const key = edgeKey(sourceId, path.blocks[index + 1]);
+      edgeCounts[key] = (edgeCounts[key] || 0) + 1;
+    });
+  });
+
+  const edgePositions = {};
+  graphPaths.forEach((path) => {
+    const color = genomeColor(genomeNames.indexOf(path.genome));
+    path.blocks.slice(0, -1).forEach((sourceId, index) => {
+      const targetId = path.blocks[index + 1];
+      const key = edgeKey(sourceId, targetId);
+      const position = edgePositions[key] || 0;
+      const total = edgeCounts[key] || 1;
+      const offset = (position - (total - 1) / 2) * 7;
+      edgePositions[key] = position + 1;
+      const source = layout[sourceId];
+      const target = layout[targetId];
+      const x1 = source.x + source.width;
+      const y1 = source.y + offset;
+      const x2 = target.x;
+      const y2 = target.y + offset;
+      const bend = Math.max(36, Math.min(128, (x2 - x1) * 0.52));
+      const edge = svgElement("path", {
+        class: "graph-edge",
+        d: `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`,
+        stroke: color,
+      });
+      svg.appendChild(edge);
+    });
+  });
+
+  return svg;
+}
+
+function orderGraphPaths(paths) {
+  const groups = [];
+  const groupsBySignature = new Map();
+  paths.forEach((path) => {
+    const signature = path.blocks.join("|");
+    if (!groupsBySignature.has(signature)) {
+      const group = { signature, paths: [] };
+      groupsBySignature.set(signature, group);
+      groups.push(group);
+    }
+    groupsBySignature.get(signature).paths.push(path);
+  });
+  return groups.flatMap((group) => group.paths);
+}
+
+function edgeKey(sourceId, targetId) {
+  return `${sourceId}->${targetId}`;
+}
+
+function graphNodeMarkup(block, genomeCount) {
+  const sequencePreview = block.sequence.length > 28 ? `${block.sequence.slice(0, 25)}...` : block.sequence;
+  const support = block.genomes.length === genomeCount ? "core" : `${block.genomes.length}/${genomeCount}`;
+  return `
+    <span class="node-id">${escapeHtml(shortBlockLabel(block.id))}</span>
+    <code>${escapeHtml(sequencePreview)}</code>
+    <span class="node-meta">${block.length} bp | ${escapeHtml(support)}</span>
+  `;
+}
+
+function svgElement(name, attributes) {
+  const element = document.createElementNS("http://www.w3.org/2000/svg", name);
+  Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+  return element;
+}
+
+function genomeColor(index) {
+  const colors = ["#2563eb", "#db2777", "#7c3aed", "#0891b2", "#dc2626", "#475569"];
+  return colors[index % colors.length];
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function blockButton(baseClass, block, result, pathByGenome) {

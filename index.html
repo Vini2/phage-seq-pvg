@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>phage-seq-pvg</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260623" />
     <script defer src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
-    <script defer src="app.js"></script>
+    <script defer src="app.js?v=20260623"></script>
   </head>
   <body>
     <header class="app-header">
@@ -31,7 +31,7 @@
           <span class="button-spinner" aria-hidden="true"></span>
           <span class="button-label">Build graph</span>
         </button>
-        <button id="sample-button" type="button">Load sample phages</button>
+        <button id="microviridae-button" type="button">Load sample Microviridae phages</button>
       </section>
 
       <section class="file-list" id="file-list" aria-live="polite"></section>
@@ -43,8 +43,12 @@
           <span><i class="swatch shared"></i> shared sequence</span>
           <span><i class="swatch variant"></i> variable sequence</span>
           <span><i class="swatch missing"></i> absent from this genome</span>
+          <span><i class="swatch path"></i> genome path</span>
         </div>
+        <h2 class="view-title">Sequence-block view</h2>
         <section class="matrix" id="matrix" aria-label="Scrollable pangenome sequence view"></section>
+        <h2 class="view-title">Pangenome view</h2>
+        <section class="graph-view" id="graph" aria-label="Scrollable pangenome graph view"></section>
         <section class="downloads" id="downloads" hidden>
           <button type="button" data-download="gfa">Download GFA</button>
           <button type="button" data-download="blocks_tsv">Download blocks TSV</button>
