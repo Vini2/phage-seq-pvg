@@ -268,7 +268,7 @@ function renderGraph(result) {
   const canvas = div("graph-canvas");
   canvas.style.width = `${graphWidth}px`;
   canvas.style.height = `${graphHeight}px`;
-  canvas.appendChild(renderGraphSvg(graphPaths, layout, genomeNames, laneY, graphWidth, graphHeight, leftPad));
+  canvas.appendChild(renderGraphSvg(graphPaths, blockById, layout, genomeNames, laneY, graphWidth, graphHeight, leftPad));
 
   genomeNames.forEach((genome, index) => {
     const label = div("graph-lane-label", genome);
@@ -286,14 +286,14 @@ function renderGraph(result) {
     button.style.top = `${box.y - box.height / 2}px`;
     button.style.width = `${box.width}px`;
     button.style.height = `${box.height}px`;
-    button.innerHTML = graphNodeMarkup(block, result.genomes.length);
+    button.innerHTML = graphNodeMarkup(block, result.genomes.length, genomeNames);
     canvas.appendChild(button);
   });
 
   els.graph.appendChild(canvas);
 }
 
-function renderGraphSvg(graphPaths, layout, genomeNames, laneY, graphWidth, graphHeight, leftPad) {
+function renderGraphSvg(graphPaths, blockById, layout, genomeNames, laneY, graphWidth, graphHeight, leftPad) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", "graph-svg");
   svg.setAttribute("viewBox", `0 0 ${graphWidth} ${graphHeight}`);
@@ -334,14 +334,15 @@ function renderGraphSvg(graphPaths, layout, genomeNames, laneY, graphWidth, grap
       edgePositions[key] = position + 1;
       const source = layout[sourceId];
       const target = layout[targetId];
+      const sourceBlock = blockById[sourceId];
+      const targetBlock = blockById[targetId];
       const x1 = source.x + source.width;
-      const y1 = source.y + offset;
+      const y1 = edgeEndpointY(path.genome, sourceBlock, source, genomeNames) + offset;
       const x2 = target.x;
-      const y2 = target.y + offset;
-      const bend = Math.max(36, Math.min(128, (x2 - x1) * 0.52));
+      const y2 = edgeEndpointY(path.genome, targetBlock, target, genomeNames) + offset;
       const edge = svgElement("path", {
         class: "graph-edge",
-        d: `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`,
+        d: graphEdgePath(x1, y1, x2, y2, laneY(path.genome)),
         stroke: color,
       });
       svg.appendChild(edge);
@@ -370,10 +371,45 @@ function edgeKey(sourceId, targetId) {
   return `${sourceId}->${targetId}`;
 }
 
-function graphNodeMarkup(block, genomeCount) {
+function edgeEndpointY(genome, block, box, genomeNames) {
+  const supportedGenomes = block.genomes
+    .slice()
+    .sort((a, b) => genomeNames.indexOf(a) - genomeNames.indexOf(b));
+  const index = Math.max(0, supportedGenomes.indexOf(genome));
+  const slotGap = Math.min(10, box.height / Math.max(3, supportedGenomes.length + 1));
+  return box.y + (index - (supportedGenomes.length - 1) / 2) * slotGap;
+}
+
+function graphEdgePath(x1, y1, x2, y2, laneCenterY) {
+  const distance = x2 - x1;
+  if (distance < 210) {
+    const bend = Math.max(36, Math.min(128, distance * 0.52));
+    return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
+  }
+
+  const shoulder = Math.min(72, Math.max(42, distance * 0.18));
+  const laneY = laneCenterY;
+  return [
+    `M ${x1} ${y1}`,
+    `C ${x1 + shoulder * 0.45} ${y1}, ${x1 + shoulder * 0.55} ${laneY}, ${x1 + shoulder} ${laneY}`,
+    `L ${x2 - shoulder} ${laneY}`,
+    `C ${x2 - shoulder * 0.55} ${laneY}, ${x2 - shoulder * 0.45} ${y2}, ${x2} ${y2}`,
+  ].join(" ");
+}
+
+function graphNodeMarkup(block, genomeCount, genomeNames) {
   const sequencePreview = block.sequence.length > 28 ? `${block.sequence.slice(0, 25)}...` : block.sequence;
   const support = block.genomes.length === genomeCount ? "core" : `${block.genomes.length}/${genomeCount}`;
+  const supportColors = block.genomes.map((genome) => genomeColor(genomeNames.indexOf(genome)));
+  const colorStops = supportColors.length
+    ? supportColors.map((color, index) => {
+      const start = (index / supportColors.length) * 100;
+      const end = ((index + 1) / supportColors.length) * 100;
+      return `${color} ${start}% ${end}%`;
+    }).join(", ")
+    : "#c7ced6 0% 100%";
   return `
+    <span class="node-support-strip" style="background: linear-gradient(90deg, ${escapeHtml(colorStops)})"></span>
     <span class="node-id">${escapeHtml(shortBlockLabel(block.id))}</span>
     <code>${escapeHtml(sequencePreview)}</code>
     <span class="node-meta">${block.length} bp | ${escapeHtml(support)}</span>

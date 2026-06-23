@@ -458,7 +458,10 @@ select:focus-visible,
   padding: 7px 10px;
   border-radius: 8px;
   text-align: left;
-  box-shadow: 0 6px 16px rgba(20, 35, 50, 0.12);
+  overflow: hidden;
+  box-shadow:
+    0 0 0 8px #ffffff,
+    0 6px 16px rgba(20, 35, 50, 0.12);
 }
 
 .graph-node.shared {
@@ -474,6 +477,13 @@ select:focus-visible,
 .graph-node:hover {
   outline: 3px solid rgba(23, 105, 224, 0.35);
   outline-offset: 2px;
+}
+
+.graph-node .node-support-strip {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  pointer-events: none;
 }
 
 .graph-node .node-id {
