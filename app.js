@@ -238,6 +238,8 @@ function renderGraph(result) {
   const columnGap = 70;
   const centerY = topPad + ((genomeNames.length - 1) * laneGap) / 2;
   const laneY = (genome) => topPad + genomeIndex[genome] * laneGap;
+  const graphHeight = topPad + (genomeNames.length - 1) * laneGap + bottomPad;
+  const graphHeightLimit = graphHeight - bottomPad / 2;
 
   let cursorX = leftPad;
   const layout = {};
@@ -245,9 +247,7 @@ function renderGraph(result) {
     const block = blockById[blockId];
     const width = clamp(block.length * 7 + 58, 92, 360);
     const isShared = block.genomes.length === result.genomes.length;
-    const y = isShared
-      ? centerY
-      : block.genomes.reduce((total, genome) => total + laneY(genome), 0) / block.genomes.length;
+    const y = graphNodeY(block, result.genomes.length, genomeNames, laneY, centerY, laneGap, nodeHeight, graphHeightLimit);
     layout[blockId] = {
       x: cursorX,
       y,
@@ -259,8 +259,6 @@ function renderGraph(result) {
   });
 
   const graphWidth = Math.max(cursorX - columnGap + rightPad, 760);
-  const graphHeight = topPad + (genomeNames.length - 1) * laneGap + bottomPad;
-
   els.graph.innerHTML = "";
   els.graph.style.setProperty("--graph-width", `${graphWidth}px`);
   els.graph.style.setProperty("--graph-height", `${graphHeight}px`);
@@ -282,6 +280,7 @@ function renderGraph(result) {
     const box = layout[blockId];
     const button = blockButton("graph-node", block, result, pathByGenome);
     button.title = `${block.id} | ${block.length} bp | ${block.genomes.join(", ")}`;
+    button.style.setProperty("--support-count", String(block.genomes.length || 1));
     button.style.left = `${box.x}px`;
     button.style.top = `${box.y - box.height / 2}px`;
     button.style.width = `${box.width}px`;
@@ -371,12 +370,45 @@ function edgeKey(sourceId, targetId) {
   return `${sourceId}->${targetId}`;
 }
 
+function graphNodeY(block, genomeCount, genomeNames, laneY, centerY, laneGap, nodeHeight, graphHeightLimit) {
+  if (block.genomes.length === genomeCount) return centerY;
+
+  const supportedY = block.genomes.map((genome) => laneY(genome));
+  let y = supportedY.reduce((total, value) => total + value, 0) / supportedY.length;
+  const supported = new Set(block.genomes);
+  const crossesUnsupportedLane = genomeNames.some((genome) => {
+    if (supported.has(genome)) return false;
+    return Math.abs(laneY(genome) - y) < nodeHeight / 2 + 8;
+  });
+
+  if (!crossesUnsupportedLane) return y;
+
+  const sortedIndexes = block.genomes
+    .map((genome) => genomeNames.indexOf(genome))
+    .sort((a, b) => a - b);
+  const gaps = sortedIndexes.slice(0, -1)
+    .map((index, gapIndex) => [index, sortedIndexes[gapIndex + 1]])
+    .filter(([start, end]) => end - start > 1);
+
+  if (gaps.length) {
+    const minY = Math.min(...supportedY);
+    const maxY = Math.max(...supportedY);
+    const below = maxY + laneGap / 2;
+    const above = minY - laneGap / 2;
+    y = below + nodeHeight / 2 <= graphHeightLimit ? below : above;
+  } else {
+    const direction = y <= centerY ? -1 : 1;
+    y += direction * Math.min(26, laneGap / 3);
+  }
+  return y;
+}
+
 function edgeEndpointY(genome, block, box, genomeNames) {
   const supportedGenomes = block.genomes
     .slice()
     .sort((a, b) => genomeNames.indexOf(a) - genomeNames.indexOf(b));
   const index = Math.max(0, supportedGenomes.indexOf(genome));
-  const slotGap = Math.min(10, box.height / Math.max(3, supportedGenomes.length + 1));
+  const slotGap = Math.min(14, box.height / Math.max(3, supportedGenomes.length + 1));
   return box.y + (index - (supportedGenomes.length - 1) / 2) * slotGap;
 }
 
@@ -401,15 +433,8 @@ function graphNodeMarkup(block, genomeCount, genomeNames) {
   const sequencePreview = block.sequence.length > 28 ? `${block.sequence.slice(0, 25)}...` : block.sequence;
   const support = block.genomes.length === genomeCount ? "core" : `${block.genomes.length}/${genomeCount}`;
   const supportColors = block.genomes.map((genome) => genomeColor(genomeNames.indexOf(genome)));
-  const colorStops = supportColors.length
-    ? supportColors.map((color, index) => {
-      const start = (index / supportColors.length) * 100;
-      const end = ((index + 1) / supportColors.length) * 100;
-      return `${color} ${start}% ${end}%`;
-    }).join(", ")
-    : "#c7ced6 0% 100%";
   return `
-    <span class="node-support-strip" style="background: linear-gradient(90deg, ${escapeHtml(colorStops)})"></span>
+    <span class="node-port-rail" aria-hidden="true">${supportColors.map((color) => `<i style="background: ${escapeHtml(color)}"></i>`).join("")}</span>
     <span class="node-id">${escapeHtml(shortBlockLabel(block.id))}</span>
     <code>${escapeHtml(sequencePreview)}</code>
     <span class="node-meta">${block.length} bp | ${escapeHtml(support)}</span>

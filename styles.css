@@ -455,7 +455,7 @@ select:focus-visible,
   column-gap: 8px;
   row-gap: 1px;
   min-height: 0;
-  padding: 7px 10px;
+  padding: 7px 10px 13px;
   border-radius: 8px;
   text-align: left;
   overflow: hidden;
@@ -479,11 +479,19 @@ select:focus-visible,
   outline-offset: 2px;
 }
 
-.graph-node .node-support-strip {
+.graph-node .node-port-rail {
   position: absolute;
-  inset: 0 0 auto;
-  height: 5px;
+  inset: auto 8px 5px;
+  display: grid;
+  grid-template-columns: repeat(var(--support-count), minmax(0, 1fr));
+  gap: 3px;
   pointer-events: none;
+}
+
+.graph-node .node-port-rail i {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
 }
 
 .graph-node .node-id {
