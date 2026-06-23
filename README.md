@@ -4,6 +4,12 @@
 
 It runs entirely in the browser with [Pyodide](https://pyodide.org/). There is no backend, no upload server, and no command-line tool. FASTA files stay in the user's browser session.
 
+# Web App
+
+🌐 Live demo: [vini2.github.io/phage-seq-pvg/](https://vini2.github.io/phage-seq-pvg/)
+
+No installation needed! Python not required. Node.js not required. You only need a modern browser such as Chrome, Firefox, Safari or Edge.
+
 ## Workflow
 
 1. Open the web page.
