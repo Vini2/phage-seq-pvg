@@ -57,11 +57,7 @@ Because Pyodide is loaded from a CDN and the app fetches `pvg_core.py`, serve th
 python -m http.server 8000
 ```
 
-Then open:
-
-```text
-[http://localhost:8000](http://localhost:8000)
-```
+Then open [http://localhost:8000](http://localhost:8000).
 
 ## Limitations
 
