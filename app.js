@@ -266,7 +266,7 @@ function handleDownload(event) {
   const key = event.target?.dataset?.download;
   if (!key || !state.result) return;
   const extension = key === "gfa" ? "gfa" : "tsv";
-  downloadText(`pvg-viz.${extension}`, state.result[key]);
+  downloadText(`phage-seq-pvg.${extension}`, state.result[key]);
 }
 
 function downloadText(filename, text) {
