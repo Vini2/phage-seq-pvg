@@ -16,7 +16,7 @@ No installation needed! Python not required. Node.js not required. You only need
 2. Upload two or more FASTA genomes.
 3. Pick a reference genome.
 4. Click **Build graph**.
-5. Inspect the scrollable sequence-block view.
+5. Inspect the scrollable sequence-block view and pangenome view.
 6. Click any shared or variable block to view:
    - block ID
    - length
