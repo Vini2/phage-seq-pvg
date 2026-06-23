@@ -1,10 +1,10 @@
 # phage-seq-pvg: Sequence-Level Pangenome Variation Graphs for Bacteriophages
 
-`phage-seq-pvg` a browser-only web app for building sequence-level pangenome variation graphs from multiple phage genomes.
+`phage-seq-pvg` a browser-only web app for building sequence-level [pangenome variation graphs (PVGs)](https://doi.org/10.1093/bioinformatics/btac743) from multiple bacteriophage genomes.
 
 It runs entirely in the browser with [Pyodide](https://pyodide.org/). There is no backend, no upload server, and no command-line tool. FASTA files stay in the user's browser session.
 
-# Web App
+## Web App
 
 🌐 Live demo: [vini2.github.io/phage-seq-pvg/](https://vini2.github.io/phage-seq-pvg/)
 
@@ -28,14 +28,22 @@ No installation needed! Python not required. Node.js not required. You only need
 
 ## How The PVG Is Built
 
-The app builds a reference-anchored sequence pangenome graph:
+The app builds a reference-anchored sequence pangenome graph as follows.
 
-1. Each FASTA upload is parsed as one genome sequence.
-2. The selected reference anchors the graph.
-3. Each other genome is aligned to the reference in the browser.
-4. Shared alignment runs become shared sequence-block nodes.
-5. SNPs, indels, and accessory sequence become variable sequence-block nodes.
-6. Each genome becomes a path through those blocks.
+1. Read uploaded FASTA genomes
+   - Each uploaded FASTA is treated as one genome sequence.
+2. Choose a reference
+   - The user-selected reference anchors the graph.
+3. Align every other genome to the reference
+   - The app uses Python’s `difflib.SequenceMatcher`. It finds matching sequence runs between each query genome and the reference, then classifies differences as substitutions, insertions, or deletions.
+4. Build alignment columns
+   - The app lifts all pairwise reference-query comparisons into one shared coordinate system.
+5. Collapse identical supported runs into blocks
+   - Consecutive columns with the same base and the same genome support become one sequence block.
+6. Create graph paths
+   - Each genome is represented as an ordered path through those blocks.
+7. Visualise the graph
+   - Shared blocks are green, variable blocks are yellow, missing blocks are grey. Clicking a block shows length, support, coordinates, and sequence.
 
 Coordinates shown in the details panel are 1-based inclusive positions within each genome.
 
@@ -54,3 +62,12 @@ Then open:
 ```text
 http://localhost:8000
 ```
+
+## Limitations
+
+This is a lightweight browser implementation for small related phage genomes. It is not equivalent to full pangenome graph builders like [PGGB](https://github.com/pangenome/pggb), [Minigraph-Cactus](https://github.com/ComparativeGenomicsToolkit/cactus), [vg](https://github.com/vgteam/vg), or [minigraph](https://github.com/lh3/minigraph), which use more sophisticated whole-genome alignment and graph normalization.
+
+
+# Acknowledgement
+
+Codex (OpenAI) was used as a development aid during front-end implementation for UI design iteration, component structuring, styling suggestions, and debugging support. All generated code and recommendations were reviewed, modified as needed, and validated by the project authors before integration.
