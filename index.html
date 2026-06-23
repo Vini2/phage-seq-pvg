@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>pvg-viz</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">browser-only pangenome graphing</p>
+        <h1>pvg-viz</h1>
+      </div>
+      <div class="runtime" id="runtime-status">Loading Pyodide...</div>
+    </header>
+
+    <main>
+      <section class="control-strip" aria-label="Build controls">
+        <label class="upload-box">
+          <input id="file-input" type="file" accept=".fa,.fasta,.fna,.txt" multiple />
+          <span>Upload FASTA genomes</span>
+        </label>
+        <label class="field">
+          <span>Reference</span>
+          <select id="reference-select"></select>
+        </label>
+        <button id="build-button" type="button" disabled>
+          <span class="button-spinner" aria-hidden="true"></span>
+          <span class="button-label">Build graph</span>
+        </button>
+        <button id="sample-button" type="button">Load sample phages</button>
+      </section>
+
+      <section class="file-list" id="file-list" aria-live="polite"></section>
+
+      <section class="summary" id="summary" hidden></section>
+
+      <section class="viewer-shell" id="viewer-shell" hidden>
+        <div class="legend" aria-label="Legend">
+          <span><i class="swatch shared"></i> shared sequence</span>
+          <span><i class="swatch variant"></i> variable sequence</span>
+          <span><i class="swatch missing"></i> absent from this genome</span>
+        </div>
+        <section class="matrix" id="matrix" aria-label="Scrollable pangenome sequence view"></section>
+        <section class="downloads" id="downloads" hidden>
+          <button type="button" data-download="gfa">Download GFA</button>
+          <button type="button" data-download="blocks_tsv">Download blocks TSV</button>
+          <button type="button" data-download="paths_tsv">Download paths TSV</button>
+          <button type="button" data-download="summary_tsv">Download summary TSV</button>
+        </section>
+        <aside class="details-panel" id="details-panel" aria-live="polite">
+          <div class="details-empty">Click a sequence block to inspect it.</div>
+          <div class="details-content" hidden>
+            <div class="details-head">
+              <div>
+                <h2 id="detail-block">Block</h2>
+                <p id="detail-type"></p>
+              </div>
+              <button id="copy-sequence" type="button">Copy sequence</button>
+            </div>
+            <dl>
+              <div><dt>Length</dt><dd id="detail-length"></dd></div>
+              <div><dt>Support</dt><dd id="detail-support"></dd></div>
+              <div><dt>Genomes</dt><dd id="detail-genomes"></dd></div>
+            </dl>
+            <div class="coordinate-section">
+              <h3>Genome coordinates</h3>
+              <ul id="detail-coordinates"></ul>
+            </div>
+            <label for="detail-sequence">Sequence</label>
+            <textarea id="detail-sequence" readonly spellcheck="false"></textarea>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>
